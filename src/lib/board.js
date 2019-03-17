@@ -39,26 +39,20 @@ class Board {
         }
     }
 
-    // toString() {
-    //     const sqrt = Math.sqrt(this.dim);
-    //     process.stdin.write(Array(this.dim + sqrt).fill('\u001bc'.repeat(this.dim + sqrt)).join('\u001bc') + Array(this.dim + sqrt).fill(' '.repeat(this.dim + sqrt)).join('\n') + Array(this.dim + sqrt).fill('\u001bc'.repeat(this.dim + sqrt)).join('\u001bc'));
-    //     let str = '';
-    //     for (let a = 0; a < sqrt; a++) {
-    //         for (let b = 0; b < sqrt; b++) {
-    //             for (let c = 0; c < sqrt; c++) {
-    //                 for (let d = 0; d < sqrt; d++) {
-    //                     str += this.rows[a * sqrt + b][c * sqrt + d].value;
-    //                 }
-    //                 str += '|';
-    //             }
-    //             str += '\n'
-    //         }
-    //         str += '-'.repeat(this.dim + sqrt) + '\n';
-    //     }
-    //     return str;
-    // }
+    backup() {
+        this.backupState = this.all.map(cell => cell.value);
+    }
 
-    solve() {
+    rollback() {
+        this.all.map((cell, i) => cell.value = this.backupState[i]);
+    }
+
+    solve(priority = range(this.dim, 1), ignoreInput) {
+        this.backup();
+        if(!ignoreInput) {
+            this.all.filter(cell => !cell.locked).forEach(cell => cell.value = 0);
+        }
+
         let i = -1, dir = 1;
         /** @type {Cell} */
         let cell = {};
@@ -69,10 +63,14 @@ class Board {
             if (!cell || cell.locked) continue;
 
             let val = cell.value;
+            let priorityIdx = priority.indexOf(val);
             do {
-                val++;
+                priorityIdx++;
+                val = priority[priorityIdx];
             }
             while (
+                priorityIdx < priority.length
+                &&
                 (
                     cell.block.some(cell => cell.value === val)
                     ||
@@ -80,10 +78,8 @@ class Board {
                     ||
                     cell.column.some(cell => cell.value === val)
                 )
-                &&
-                val <= this.dim
             );
-            if (val <= this.dim) {
+            if (priorityIdx < priority.length) {
                 cell.value = val;
                 dir = 1;
             } else {
@@ -91,14 +87,215 @@ class Board {
                 dir = -1;
             }
         }
+
+        if (i === -1) {
+            this.rollback();
+        }
+        return i > -1;
+    }
+
+    isSolvable(priority = range(this.dim, 1)) {
+        this.backup();
+
+        let i = -1, dir = 1;
+        let foundSolution = false;
+
+        /** @type {Cell} */
+        let cell = {};
+        while (cell) {
+            i += dir;
+            cell = this.all[i];
+
+            if (!cell || cell.locked) continue;
+
+            let val = cell.value;
+            let priorityIdx = priority.indexOf(val);
+            do {
+                priorityIdx++;
+                val = priority[priorityIdx];
+            }
+            while (
+                priorityIdx < priority.length
+                &&
+                (
+                    cell.block.some(cell => cell.value === val)
+                    ||
+                    cell.row.some(cell => cell.value === val)
+                    ||
+                    cell.column.some(cell => cell.value === val)
+                )
+            );
+            if (priorityIdx < priority.length) {
+                cell.value = val;
+                dir = 1;
+            } else {
+                cell.value = 0;
+                dir = -1;
+            }
+        }
+
+        if (i === -1) {
+            this.rollback();
+            return false;
+        }
+
+        i--;
+        while (i >= 0 && this.all[i].locked) {
+            i--;
+        }
+        i--;
+        foundSolution = true;
+
+        cell = {};
+        while (cell) {
+            i += dir;
+            cell = this.all[i];
+
+            if (!cell || cell.locked) continue;
+
+            let val = cell.value;
+            let priorityIdx = priority.indexOf(val);
+            do {
+                priorityIdx++;
+                val = priority[priorityIdx];
+            }
+            while (
+                priorityIdx < priority.length
+                &&
+                (
+                    cell.block.some(cell => cell.value === val)
+                    ||
+                    cell.row.some(cell => cell.value === val)
+                    ||
+                    cell.column.some(cell => cell.value === val)
+                )
+            );
+            if (priorityIdx < priority.length) {
+                cell.value = val;
+                dir = 1;
+            } else {
+                cell.value = 0;
+                dir = -1;
+            }
+        }
+
+        this.rollback();
+        return i === -1 && foundSolution;
+    }
+
+    shuffle_test(difficulty = 5) {
+        const visibleCells = getVisibleCellsByDifficulty(difficulty, this.dim);
+        
+        this.all.forEach(cell => { cell.locked = false; cell.value = 0; });
+        const solvePriority = shuffleArray(range(this.dim, 1));
+        this.solve(solvePriority, true);
+
+        const size = this.dim ** 2;
+        const shuffledIndexes = shuffleArray(range(size));
+        this.all.forEach(cell => cell.locked = true);
+        
+        let i;
+        const valsRemoved = [];
+        for(i = size - 1; i >= visibleCells; i--) {
+            const cell = this.all[shuffledIndexes[i]];
+            valsRemoved.push(cell.value);
+            cell.locked = false;
+            cell.value = 0;
+        }
+        i++;
+        let counter = 0;
+        while(!this.isSolvable(solvePriority)) {
+            this.all[shuffledIndexes[i]].value = valsRemoved.pop();
+            counter++;
+        }
+
+        if(counter > 0) {
+            console.warn(`Shuffle could not stand up to expectations: expected ${visibleCells} visibleCells, got down to ${visibleCells - counter} visible cells`);
+            window.currVisible = visibleCells - counter;
+        }
+    }
+    
+    shuffle(difficulty = 5) {
+        const visibleCells = getVisibleCellsByDifficulty(difficulty, this.dim);
+
+        this.all.forEach(cell => { cell.locked = false; cell.value = 0; });
+        const priority = shuffleArray(range(this.dim, 1));
+        // FOR TESTING
+        window.priority = priority;
+        // 
+        this.solve(priority, true);
+
+        const size = this.dim ** 2;
+        const shuffledIndexes = shuffleArray(range(size));
+        let currVisible = size;
+        let i = 0;
+        let lastValue, cell, isSolvable;
+        this.all.forEach(cell => cell.locked = true);
+        do {
+
+            do {
+                cell = this.all[shuffledIndexes[i]];
+                lastValue = cell.value;
+                cell.value = 0;
+                cell.locked = false;
+                i++;
+                currVisible--;
+                isSolvable = this.isSolvable(priority);
+            } while (isSolvable && currVisible > visibleCells && i < size);
+            
+            if (!isSolvable) {
+                currVisible++;
+                cell.value = lastValue;
+                cell.locked = true;
+            }
+        } while (currVisible > visibleCells && i < size);
+
+        if(currVisible > visibleCells) {
+            console.warn(`Shuffle could not stand up to expectations: expected ${visibleCells} visibleCells, got down to ${currVisible} visible cells`);
+            window.currVisible = currVisible;
+        }
     }
 }
 
-// const board = new Board(9);
-export default Board;
+function range(n, start = 0) {
+    return Array(n).fill().map((_, i) => i + start);
+}
 
-    // board.cells[3][3].value = 5;
-    // board.cells[3][3].locked = true;
-    // board.solve();
-    // console.log(board.toString());
-    // process.stdin.write(Array(12).fill('\033c'.repeat(12)).join('\033c') + Array(12).fill(' '.repeat(12)).join('\n') + Array(12).fill('\033c'.repeat(12)).join('\033c'));
+function shuffleArray(arr) {
+    for (let i = 0; i < arr.length; i++) {
+        const idx = Math.floor(Math.random() * arr.length - i) + i;
+        [arr[i], arr[idx]] = [arr[idx], arr[i]];
+    }
+    return arr;
+}
+
+const difficultyMap = {
+    4: {
+        1 : 8, 
+        2 : 7, 
+        3 : 6, 
+        4 : 5, 
+        5 : 4
+    }, 
+    9: {
+        1 : 40, 
+        2 : 35, 
+        3 : 30, 
+        4 : 25, 
+        5 : 22
+    }, 
+    16: {
+        1 : 180, 
+        2 : 160, 
+        3 : 140, 
+        4 : 120, 
+        5 : 103
+    }
+}
+function getVisibleCellsByDifficulty(difficulty, dim) {
+    return difficultyMap[dim][difficulty];
+}
+
+Board.Cell = Cell;
+
+export default Board;
