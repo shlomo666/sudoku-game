@@ -23,8 +23,8 @@ class BoardElement extends Component {
                 </div>
                 <div>
                     {range(sqrt).map(i => <div style={{ display: 'flex' }}>
-                        {range(sqrt).map(j => <div>
-                            {range(sqrt).map(k => <div className="Board-Block" style={{ display: 'flex' }}>
+                        {range(sqrt).map(j => <div className="Board-Block" >
+                            {range(sqrt).map(k => <div style={{ display: 'flex' }}>
                                 {range(sqrt).map(l => {
                                     const cell = board.blocks[i * sqrt + j][k * sqrt + l];
                                     return <input
@@ -49,7 +49,7 @@ class BoardElement extends Component {
                     )}
                 </div>
                 <div style={{ display: 'flex' }}>
-                    <button className="Buttons" onClick={() => {
+                    <button className="Buttons btn-green" onClick={() => {
                         if (board.solve()) {
                             this.setState({ board });
                         } else {
@@ -57,15 +57,15 @@ class BoardElement extends Component {
                         }
                     }}>Solve</button>
 
-                    <button className="Buttons" onClick={() => {
+                    <button className="Buttons btn-yellow" onClick={() => {
                         this.setState({
                             board: new Board(this.props.dim)
                         });
                     }}>Reset</button>
 
-                    <button className="Buttons" onClick={() => {
+                    <button className="Buttons btn-red" onClick={() => {
                         this.props.onExit();
-                    }}>Back To Menu</button>
+                    }}>Exit</button>
                 </div>
             </div>
         );

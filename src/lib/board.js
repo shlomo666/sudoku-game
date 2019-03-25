@@ -139,11 +139,7 @@ class Board {
             return false;
         }
 
-        i--;
-        while (i >= 0 && this.all[i].locked) {
-            i--;
-        }
-        i--;
+        dir = -1;
         foundSolution = true;
 
         cell = {};
@@ -214,7 +210,7 @@ class Board {
             window.currVisible = visibleCells - counter;
         }
     }
-    
+
     shuffle(difficulty = 5) {
         const visibleCells = getVisibleCellsByDifficulty(difficulty, this.dim);
 
@@ -224,13 +220,13 @@ class Board {
         window.priority = priority;
         // 
         this.solve(priority, true);
+        this.all.forEach(cell => cell.locked = true);
 
         const size = this.dim ** 2;
         const shuffledIndexes = shuffleArray(range(size));
         let currVisible = size;
         let i = 0;
         let lastValue, cell, isSolvable;
-        this.all.forEach(cell => cell.locked = true);
         do {
 
             do {
