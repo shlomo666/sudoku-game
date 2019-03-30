@@ -1,11 +1,16 @@
 class Cell {
     constructor(value = 0) {
+        /** @type {Cell[]} */
         this.row = [];
+        /** @type {Cell[]} */
         this.column = [];
+        /** @type {Cell[]} */
         this.block = [];
         this.value = value;
         this.options = [];
         this.locked = false;
+        this.fiber = 0;
+        this.index = 0;
     }
 }
 
@@ -35,6 +40,9 @@ class Board {
                 cell.block = this.blocks[i - i % sqrt + (j - j % sqrt) / sqrt];
 
                 this.all[i * dim + j] = cell;
+
+                cell.options = [...Array(dim)];
+                cell.index = i * dim + j;
             }
         }
     }
@@ -49,7 +57,7 @@ class Board {
 
     solve(priority = range(this.dim, 1), ignoreInput) {
         this.backup();
-        if(!ignoreInput) {
+        if (!ignoreInput) {
             this.all.filter(cell => !cell.locked).forEach(cell => cell.value = 0);
         }
 
@@ -181,7 +189,7 @@ class Board {
 
     shuffle_test(difficulty = 5) {
         const visibleCells = getVisibleCellsByDifficulty(difficulty, this.dim);
-        
+
         this.all.forEach(cell => { cell.locked = false; cell.value = 0; });
         const solvePriority = shuffleArray(range(this.dim, 1));
         this.solve(solvePriority, true);
@@ -189,10 +197,10 @@ class Board {
         const size = this.dim ** 2;
         const shuffledIndexes = shuffleArray(range(size));
         this.all.forEach(cell => cell.locked = true);
-        
+
         let i;
         const valsRemoved = [];
-        for(i = size - 1; i >= visibleCells; i--) {
+        for (i = size - 1; i >= visibleCells; i--) {
             const cell = this.all[shuffledIndexes[i]];
             valsRemoved.push(cell.value);
             cell.locked = false;
@@ -200,15 +208,31 @@ class Board {
         }
         i++;
         let counter = 0;
-        while(!this.isSolvable(solvePriority)) {
+        while (!this.isSolvable(solvePriority)) {
             this.all[shuffledIndexes[i]].value = valsRemoved.pop();
             counter++;
         }
 
-        if(counter > 0) {
+        if (counter > 0) {
             console.warn(`Shuffle could not stand up to expectations: expected ${visibleCells} visibleCells, got down to ${visibleCells - counter} visible cells`);
             window.currVisible = visibleCells - counter;
         }
+    }
+
+    shuffleHard() {
+        do {
+            this.shuffle();
+
+            let arr;
+            do {
+                arr = this.getHints();
+                arr.forEach(({ cell, value }) => cell.value = value);
+            } while (arr.length > 0);
+
+        } while (this.all.every(c => c.value > 0));
+
+        // TESTING EASIER WHEN COMMENTED OUT
+        this.all.filter(c => !c.locked).forEach(c => c.value = 0); 
     }
 
     shuffle(difficulty = 5) {
@@ -238,7 +262,7 @@ class Board {
                 currVisible--;
                 isSolvable = this.isSolvable(priority);
             } while (isSolvable && currVisible > visibleCells && i < size);
-            
+
             if (!isSolvable) {
                 currVisible++;
                 cell.value = lastValue;
@@ -246,10 +270,75 @@ class Board {
             }
         } while (currVisible > visibleCells && i < size);
 
-        if(currVisible > visibleCells) {
+        if (currVisible > visibleCells) {
             console.warn(`Shuffle could not stand up to expectations: expected ${visibleCells} visibleCells, got down to ${currVisible} visible cells`);
             window.currVisible = currVisible;
         }
+    }
+
+
+    setFibers() {
+        this.all.filter(c => !c.value).forEach(c => {
+            let fiber = parseInt('1'.repeat(this.dim), 2);
+            c.row.filter(c => c.value).forEach(cell => fiber = fiber & ~(1 << (cell.value - 1)));
+            c.column.filter(c => c.value).forEach(cell => fiber = fiber & ~(1 << (cell.value - 1)));
+            c.block.filter(c => c.value).forEach(cell => fiber = fiber & ~(1 << (cell.value - 1)));
+            c.fiber = fiber;
+        })
+    }
+
+    getHints() {
+        this.setFibers();
+
+        const hints = this.all
+            .filter(c => !c.value && !(c.fiber & (c.fiber - 1)))
+            .map(c => ({ cell: c, value: c.fiber.toString(2).length }));
+
+        for (let n = 1; n <= this.dim; n++) {
+            [
+                this.rows,
+                this.columns,
+                this.blocks
+            ].forEach(ordersArr => {
+                ordersArr.forEach(order => {
+                    const candidates = order.filter(c => !c.value && (c.fiber & (1 << (n - 1))));
+                    if (candidates.length === 1) {
+                        hints.push({
+                            cell: candidates[0],
+                            value: n
+                        });
+                    }
+                });
+            });
+        }
+
+        return hints;
+    }
+
+    getHints_indexes() {
+        const hints = [...this.all.keys()]
+            .filter(i => !this.all[i].value && !(this.all[i].fiber & (this.all[i].fiber - 1)))
+            .map(i => ({ index: i, value: this.all[i].fiber.toString(2).length }));
+
+        for (let n = 1; n <= this.dim; n++) {
+            [
+                this.rows,
+                this.columns,
+                this.blocks
+            ].forEach(ordersArr => {
+                ordersArr.forEach(order => {
+                    const candidates = order.filter(c => !c.value && (c.fiber & (1 << (n - 1))));
+                    if (candidates.length === 1) {
+                        hints.push({
+                            index: this.all.indexOf(candidates[0]),
+                            value: n
+                        });
+                    }
+                });
+            });
+        }
+
+        return hints;
     }
 }
 
@@ -267,25 +356,25 @@ function shuffleArray(arr) {
 
 const difficultyMap = {
     4: {
-        1 : 8, 
-        2 : 7, 
-        3 : 6, 
-        4 : 5, 
-        5 : 4
-    }, 
+        1: 8,
+        2: 7,
+        3: 6,
+        4: 5,
+        5: 4
+    },
     9: {
-        1 : 40, 
-        2 : 35, 
-        3 : 30, 
-        4 : 25, 
-        5 : 22
-    }, 
+        1: 40,
+        2: 35,
+        3: 30,
+        4: 25,
+        5: 22
+    },
     16: {
-        1 : 180, 
-        2 : 160, 
-        3 : 140, 
-        4 : 120, 
-        5 : 103
+        1: 180,
+        2: 160,
+        3: 140,
+        4: 120,
+        5: 103
     }
 }
 function getVisibleCellsByDifficulty(difficulty, dim) {

@@ -29,6 +29,12 @@
   background-color: green;
 }
 
+.btn-blue {
+  color: white;
+  font-weight: bolder;
+  background-color: blue;
+}
+
 .App-header {
   background-color: #282c34;
   min-height: 100vh;
@@ -48,6 +54,7 @@
   border-width: 0px;
   margin-top: 1px;
   margin-left: 1px;
+  padding: 1px;
 }
 
 .Cell-Mini {
@@ -55,4 +62,28 @@
   height: 15px;
   text-align: center;
   font-size: 10px;
+}
+
+.options-cell {
+  margin: auto;
+  font-weight: bolder;
+}
+
+.options-container {
+  background-color: white;
+  color: black;
+  display: flex;
+  flex-flow: row wrap;
+  align-content: space-between;
+}
+
+.Options-Dialog-Button {
+  width: 30px;
+  height: 30px;
+  color: white;  
+  background-color: #34981b;
+}
+
+.Options-Dialog-Button-Pressed {
+  background-color: #3498db;
 }
