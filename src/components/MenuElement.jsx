@@ -28,7 +28,6 @@ class BoardElement extends Component {
 
                 <select className="Buttons" defaultValue={this.state.dim} onInput={(val) => {
                     this.setState({ ...this.state, dim: Number(val.target.value) });
-                    // this.props.onChange(this.state);
                 }}>
                     <option value="4">4x4</option>
                     <option value="9">9x9</option>
