@@ -1,8 +1,9 @@
 
 import React, { Component } from 'react';
 import Board from '../lib/board';
-import ChoiceDialog from '../lib/ChoiceDialog';
+import ChoiceDialog from './ChoiceDialog';
 import '../App.css';
+import { getHints, isSolved, range, setFibersStrong } from '../lib/logic';
 
 class BoardElement extends Component {
 
@@ -26,7 +27,8 @@ class BoardElement extends Component {
         this.isEnded = false;
         this.fullCounter = this.state.board.all.filter(cell => cell.value).length;
 
-        this.choiceDialog = new ChoiceDialog(() => this.setState(this.state));
+        this.focusedCell = null;
+        // this.choiceDialog = new ChoiceDialog(() => this.setState(this.state));
     }
 
     render() {
@@ -43,13 +45,9 @@ class BoardElement extends Component {
                     <p style={this.state.error ? {} : { color: '#282c34' }}>{this.state.error || 'something'}</p>
                 </div>
 
-                {this.state.optionsMode && this.choiceDialog.visible ?
-                    <div>
-                        {this.choiceDialog.element}
-                    </div>
-                    :
-                    null
-                }
+                <div>
+                    <ChoiceDialog dim={board.dim} cell={this.focusedCell} onChange={() => this.setState(this.state)}/>
+                </div>
 
                 <div>
                     {range(sqrt).map(i => <div style={{ display: 'flex' }}>
@@ -57,7 +55,7 @@ class BoardElement extends Component {
                             {range(sqrt).map(k => <div style={{ display: 'flex' }}>
                                 {range(sqrt).map(l => {
                                     const cell = board.blocks[i * sqrt + j][k * sqrt + l];
-                                    if (!cell.value && this.state.optionsMode) {
+                                    if (!cell.value && cell.options.some(n => n)) {
                                         return this.getOptionsCell(cell);
                                     } else {
                                         return this.getNumberCell(cell);
@@ -79,13 +77,8 @@ class BoardElement extends Component {
                         }
                     }}>Solve</button>
 
-                    <button className="Buttons btn-blue" onClick={() => {
-                        this.state.optionsMode = !this.state.optionsMode;
-                        this.setState(this.state);
-                    }}>Toggle Options</button>
-
                     <button className="Buttons btn-yellow" onClick={() => {
-                        board.all.filter(c => !c.locked).forEach(c => c.value = 0);
+                        board.all.filter(c => !c.locked).forEach(c => (c.value = 0, c.options = Array(board.dim).fill()));
                         board.all.forEach(c => {
                             c.state = { highlightedCell: false, highlightedNumber: false };
                         });
@@ -127,6 +120,7 @@ class BoardElement extends Component {
                 type="text"
                 maxLength="2"
                 readOnly={this.isEnded || cell.locked}
+                key={cell.index}
                 className="Cell"
                 style={{
                     backgroundColor: cell.locked ? '#A7A7B4' : (cell.state.highlightedCell ? 'rgba(255,255,255,0.8)' : ''),
@@ -135,6 +129,8 @@ class BoardElement extends Component {
                 }}
                 value={cell.value || ''}
                 onFocus={(e) => {
+                    this.focusedCell = cell.value ? null : cell;
+
                     highlightLines(cell);
                     highlightNumber(cell, board);
                     this.setState(this.state);
@@ -150,6 +146,7 @@ class BoardElement extends Component {
                 onChange={e => {
                     const n = Number(e.target.value || 0);
                     this.changeValueOnBoard(n, cell, board);
+                    this.focusedCell = cell.value ? null : cell;
                 }} />
         </div>;
     }
@@ -178,26 +175,51 @@ class BoardElement extends Component {
     /** @param {Board.Cell} cell */
     getOptionsCell(cell) {
         const board = this.state.board;
+        const optionCellSize = Math.floor(30 / board.sqrt);
 
         return <div className="Cell">
             <div
                 className="Cell options-container"
-                style={this.choiceDialog.cell === cell ? { color: 'blue', backgroundColor: 'beige' } : {}}
-                onClick={(e) => {
-                    this.choiceDialog.show(cell);
+                key={cell.index}
+                tabIndex="0"
+                readOnly={this.isEnded}
+                style={
+                    this.focusedCell === cell ?
+                        { color: 'blue', backgroundColor: 'beige' }
+                        :
+                        (
+                            cell.state.highlightedCell ?
+                                { backgroundColor: 'rgba(255,255,255,0.8)' }
+                                :
+                                {}
+                        )
+                }
+
+                onFocus={(e) => {
+                    this.focusedCell = cell;
+
+                    highlightLines(cell);
+                    highlightNumber(cell, board);
                     this.setState(this.state);
                 }}
                 onBlur={() => {
+                    unhighlightLines(cell);
+                    highlightNumber(cell, board);
                     this.setState(this.state);
+                }}
+                onKeyUp={(e) => {
+                    if (/[0-9]/.test(e.key)) {
+                        this.changeValueOnBoard(Number(e.key), cell, board);
+                    }
                 }}
             >
                 {cell.options.map((marked, i) =>
                     <div
                         className="options-cell"
                         style={{
-                            fontSize: '9px',
-                            width: '10px',
-                            height: '10px'
+                            fontSize: `${board.sqrt === 4 ? optionCellSize / 2 | 0 : optionCellSize - 1}px`,
+                            width: `${optionCellSize}px`,
+                            height: `${optionCellSize}px`
                         }}>{marked ? i + 1 : ' '}</div>
                 )}
             </div>
@@ -205,7 +227,7 @@ class BoardElement extends Component {
     }
 
     showHint() {
-        setFibers(this.state.board);
+        setFibersStrong(this.state.board);
         const hints = getHints(this.state.board);
         console.log(hints);
         const [hint] = hints;
@@ -247,112 +269,4 @@ function unhighlightLines(cell) {
     cell.column.forEach(p => p.state.highlightedCell = false);
 }
 
-function range(n) {
-    return [...Array(n).keys()];
-}
-
-
-/** @param {Board} board */
-function isSolved(board) {
-    return (
-        board.rows.every(row => new Set(row.map(cell => cell.value)).size === board.dim)
-        &&
-        board.columns.every(column => new Set(column.map(cell => cell.value)).size === board.dim)
-        &&
-        board.blocks.every(block => new Set(block.map(cell => cell.value)).size === board.dim)
-    );
-}
-
-/** @param {Board} board */
-function setFibers(board) {
-    board.all.filter(c => !c.value).forEach(c => {
-        let fiber = parseInt('1'.repeat(board.dim), 2);
-        c.row.filter(c => c.value).forEach(cell => fiber = fiber & ~(1 << (cell.value - 1)));
-        c.column.filter(c => c.value).forEach(cell => fiber = fiber & ~(1 << (cell.value - 1)));
-        c.block.filter(c => c.value).forEach(cell => fiber = fiber & ~(1 << (cell.value - 1)));
-        c.fiber = fiber;
-    })
-}
-
-/** @param {Board} board */
-function setFibersStrong(board) {
-    setFibers(board);
-
-    let marksCounter = 0, lastMarksCounter;
-
-    while (marksCounter !== lastMarksCounter) {
-        lastMarksCounter = marksCounter;
-        marksCounter = reduceFibers(board);
-    }
-}
-
-/** @param {Board} board */
-function reduceFibers(board) {
-    const { sqrt, dim } = board;
-    let marksCounter = 0;
-
-    [
-        [board.rows.flat(), (groupI, where, sourceGroup) => sourceGroup[groupI * dim + where * sqrt].block.filter((_, idx) => Math.floor(idx / sqrt) !== groupI % sqrt)],
-        [board.columns.flat(), (groupI, where, sourceGroup) => sourceGroup[groupI * dim + where * sqrt].block.filter((cell) => cell.index % dim !== groupI % dim)],
-        [board.blocks.flat(), (groupI, where, sourceGroup) => sourceGroup[groupI * dim + where * sqrt].row.filter((_, idx) => Math.floor(idx / sqrt) !== groupI % sqrt)],
-        [board.blocks.map(block => block.map((c, i, arr) => arr[ Math.floor(i / sqrt) + (i % sqrt) * sqrt ])).flat(), (groupI, where, sourceGroup) => board.blocks[groupI][where].column.filter((cell, idx) => Math.floor(idx / sqrt) !== Math.floor(groupI / sqrt))]
-    ].forEach(([sourceGroup, getCellsToRemoveOptionFrom], sourceIdx) => {
-        const fibers = toChunks(sourceGroup, sqrt).map(order => order.filter(c => !c.value).reduce((totalFiber, c) => totalFiber | c.fiber, 0));
-        const fiberGroups = toChunks(fibers, sqrt);
-
-        range(dim).map(o => 1 << o).forEach(bit => {
-            fiberGroups.forEach((group, i) => {
-                const marks = group.map(fiber => !!(bit & fiber));
-                if (marks.filter(p => p).length === 1) {
-                    console.log({ i, option: bit.toString(2).length, marks: marks.toString(), sourceIdx });
-                    marksCounter++;
-                    const where = marks.indexOf(true);
-                    const cellsToRemoveOptionFrom = getCellsToRemoveOptionFrom(i, where, sourceGroup);
-                    console.log(cellsToRemoveOptionFrom.map(p => p.index));
-                    cellsToRemoveOptionFrom.forEach(cell => cell.fiber = cell.fiber & ~bit);
-                }
-            });
-        });
-    })
-
-    return marksCounter;
-}
-
-/** @param {Board} board */
-function getHints(board) {
-    const hints = [...board.all.keys()]
-        .filter(i => !board.all[i].value && !(board.all[i].fiber & (board.all[i].fiber - 1)))
-        .map(i => ({
-            index: i,
-            value: board.all[i].fiber.toString(2).length,
-            reason: 'The only available option for this cell'
-        }));
-    range(board.dim).forEach(o => {
-        const value = o + 1;
-        const bit = 1 << o;
-        [
-            [board.rows, `only candidate for ${value} in row`],
-            [board.columns, `only candidate for ${value} in column`],
-            [board.blocks, `only candidate for ${value} in block`]
-        ].forEach(([ordersArr, reason]) => {
-            ordersArr.forEach(order => {
-                const candidates = order.filter(c => !c.value && (c.fiber & bit));
-                if (candidates.length === 1) {
-                    hints.push({
-                        index: board.all.indexOf(candidates[0]),
-                        value,
-                        reason
-                    });
-                }
-            });
-        });
-    });
-
-    return hints;
-}
-
-/** @type {<T>(arr: T[], size: number) => T[][]} */
-function toChunks(arr, size) {
-    return [...Array(arr.length / size).keys()].map(i => arr.slice(i * size, (i + 1) * size));
-}
 

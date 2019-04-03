@@ -71,6 +71,7 @@ class Board {
             if (!cell || cell.locked) continue;
 
             let val = cell.value;
+            let matchVal = cell => cell.value === val;
             let priorityIdx = priority.indexOf(val);
             do {
                 priorityIdx++;
@@ -80,11 +81,11 @@ class Board {
                 priorityIdx < priority.length
                 &&
                 (
-                    cell.block.some(cell => cell.value === val)
+                    cell.block.some(matchVal)
                     ||
-                    cell.row.some(cell => cell.value === val)
+                    cell.row.some(matchVal)
                     ||
-                    cell.column.some(cell => cell.value === val)
+                    cell.column.some(matchVal)
                 )
             );
             if (priorityIdx < priority.length) {
@@ -117,6 +118,7 @@ class Board {
             if (!cell || cell.locked) continue;
 
             let val = cell.value;
+            let matchVal = cell => cell.value === val;
             let priorityIdx = priority.indexOf(val);
             do {
                 priorityIdx++;
@@ -126,11 +128,11 @@ class Board {
                 priorityIdx < priority.length
                 &&
                 (
-                    cell.block.some(cell => cell.value === val)
+                    cell.block.some(matchVal)
                     ||
-                    cell.row.some(cell => cell.value === val)
+                    cell.row.some(matchVal)
                     ||
-                    cell.column.some(cell => cell.value === val)
+                    cell.column.some(matchVal)
                 )
             );
             if (priorityIdx < priority.length) {
@@ -158,6 +160,7 @@ class Board {
             if (!cell || cell.locked) continue;
 
             let val = cell.value;
+            let matchVal = cell => cell.value === val;
             let priorityIdx = priority.indexOf(val);
             do {
                 priorityIdx++;
@@ -167,11 +170,11 @@ class Board {
                 priorityIdx < priority.length
                 &&
                 (
-                    cell.block.some(cell => cell.value === val)
+                    cell.block.some(matchVal)
                     ||
-                    cell.row.some(cell => cell.value === val)
+                    cell.row.some(matchVal)
                     ||
-                    cell.column.some(cell => cell.value === val)
+                    cell.column.some(matchVal)
                 )
             );
             if (priorityIdx < priority.length) {
@@ -220,6 +223,10 @@ class Board {
     }
 
     shuffleHard() {
+        if(this.dim !== 9) {
+            return this.shuffle();
+        }
+
         do {
             this.shuffle();
 
@@ -236,13 +243,12 @@ class Board {
     }
 
     shuffle(difficulty = 5) {
+        // const startT = performance.now();
+
         const visibleCells = getVisibleCellsByDifficulty(difficulty, this.dim);
 
         this.all.forEach(cell => { cell.locked = false; cell.value = 0; });
         const priority = shuffleArray(range(this.dim, 1));
-        // FOR TESTING
-        window.priority = priority;
-        // 
         this.solve(priority, true);
         this.all.forEach(cell => cell.locked = true);
 
@@ -274,6 +280,8 @@ class Board {
             console.warn(`Shuffle could not stand up to expectations: expected ${visibleCells} visibleCells, got down to ${currVisible} visible cells`);
             window.currVisible = currVisible;
         }
+
+        // console.log('shuffle took:', performance.now() - startT);
     }
 
 
@@ -374,7 +382,7 @@ const difficultyMap = {
         2: 160,
         3: 140,
         4: 120,
-        5: 103
+        5: 115//103
     }
 }
 function getVisibleCellsByDifficulty(difficulty, dim) {
