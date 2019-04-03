@@ -26,7 +26,7 @@ class BoardElement extends Component {
                     this.props.onChange(nextState);
                 }}>Solver</button>
 
-                <select className="Buttons" defaultValue={"9"} onInput={(val) => {
+                <select className="Buttons" defaultValue={this.state.dim} onInput={(val) => {
                     this.setState({ ...this.state, dim: Number(val.target.value) });
                     // this.props.onChange(this.state);
                 }}>
