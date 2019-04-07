@@ -42,6 +42,7 @@ export function setFibersStrong(board) {
         reduceFibers1(board);
         reduceFibers2(board);
         reduceFibers3(board);
+        swordfish(board);
     } while (board.all.some((c, i) => c.fiber !== fibersBefore[i]));
 }
 
@@ -197,6 +198,44 @@ export function getHints(board) {
     });
 
     return hints;
+}
+
+/** @param {Board} board */
+export function swordfish(board) {
+    // https://www.kristanix.com/sudokuepic/sudoku-solving-techniques.php
+    // find columns where number is avaliable only in 2 cells.
+    // if one of their rows is also the same - add to trail
+    // if trail goes back - great.
+    // if not - move on
+
+    for(const n of range(board.dim)) {
+        const hasN = cell => cell.fiber & (1 << (n - 1));
+        /** @type {Board.Cell[]} */
+        const columnsWithOnly2N = board.columns.map(column => column.filter(hasN)).filter(column => column.length === 2).flat();
+        if(columnsWithOnly2N.length >= 4) {
+            const map = new Map();
+            columnsWithOnly2N.forEach(cell => {
+                let row = map.get(cell.row);
+                if(!row) {
+                    row = [];
+                    map.set(cell.row, row);
+                }
+                row.push(cell.index);
+            });
+            const rows = [...map.values()];
+            if(rows.every(row => row.length === 2)) {
+                console.log('swordfish', rows);
+                rows.forEach(row => {
+                    board.all[row[0]].row.filter(c => c.index !== row[0] && c.index !== row[1])
+                    .forEach(c => removeOptionFromFiber(c, n));
+                });
+            }
+        }
+    }
+}
+
+function removeOptionFromFiber(cell, n) {
+    cell.fiber = cell.fiber & ~(1 << (n - 1));
 }
 
 /** @type {<T>(arr: T[], size: number) => T[][]} */
