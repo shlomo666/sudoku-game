@@ -14,7 +14,7 @@
 importScripts("https://storage.googleapis.com/workbox-cdn/releases/3.6.3/workbox-sw.js");
 
 importScripts(
-  "/sudoku-game/precache-manifest.a84926aa3ee49bd9ebdb2696986b04fc.js"
+  "/sudoku-game/precache-manifest.8158aecb78b353f2e1af46f60cc7dded.js"
 );
 
 workbox.clientsClaim();
