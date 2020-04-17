@@ -4,6 +4,7 @@ import BoardElement from './components/BoardElement';
 import MenuElement from './components/MenuElement';
 import SolverElement from './components/SolverElement';
 import { MenuItems } from './enums/MenuItems';
+import { getQueryParams, onPopState } from './utils/browser';
 
 let initialState;
 
@@ -15,18 +16,27 @@ class App extends Component {
 
   componentWillMount() {
     document.title = 'Sudoku Game';
+    onPopState(state => {
+      initialState = state;
+      this.setState({
+        ...this.state,
+        page: state ? MenuItems.NEW_GAME : this.state.page
+      });
+    });
 
-    const menuItem = window.location.pathname.split('/').pop();
-    if (menuItem === MenuItems.NEW_GAME) {
-      const { values, locked } = window.location.search
-        .slice(1)
-        .split('&')
-        .map(pair => pair.split('='))
-        .map(pair => [pair[0], pair[1].split('').map(ch => parseInt(ch, 16))])
-        .reduce((obj, pair) => ((obj[pair[0]] = pair[1]), obj), {});
+    const { page, values, locked } = getQueryParams();
+    if (page === MenuItems.NEW_GAME) {
+      initialState = {
+        values: values.split('').map(ch => parseInt(ch, 16)),
+        locked: locked.split('').map(Number).map(Boolean)
+      };
 
-      this.state.page = MenuItems.NEW_GAME;
-      initialState = { values, locked };
+      window.history.replaceState(initialState, document.title);
+
+      this.setState({
+        ...this.state,
+        page: MenuItems.NEW_GAME
+      });
     }
   }
 
@@ -50,17 +60,15 @@ function getPage(state, onChange) {
           dim={dim}
           initialState={initialState}
           onExit={() => {
-            const regularPath = window.location.href.split(
-              MenuItems.NEW_GAME
-            )[0];
-            window.history.pushState(regularPath, document.title, regularPath);
-            initialState = undefined;
+            if (initialState) {
+              const regularPath = window.location.href.split('?')[0];
+              window.history.pushState(null, document.title, regularPath);
+              initialState = undefined;
+            }
             onChange({ ...state, page: 'menu' });
           }}
         ></BoardElement>
       );
-    case MenuItems.MENU:
-      return <MenuElement dim={dim} onChange={onChange}></MenuElement>;
     case MenuItems.SOLVER:
       return (
         <SolverElement
@@ -68,6 +76,9 @@ function getPage(state, onChange) {
           onExit={() => onChange({ ...state, page: 'menu' })}
         ></SolverElement>
       );
+    case MenuItems.MENU:
+    default:
+      return <MenuElement dim={dim} onChange={onChange}></MenuElement>;
   }
 }
 

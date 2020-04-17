@@ -40,6 +40,7 @@ class BoardElement extends Component {
   }
 
   render() {
+    const { animateCopied } = this.state;
     const board = this.state.board;
     const sqrt = board.sqrt;
     /// for testing:
@@ -48,6 +49,30 @@ class BoardElement extends Component {
 
     const page = (
       <div className="App-header">
+        <div
+          style={{
+            width: 180,
+            height: 30
+          }}
+        >
+          <button
+            style={{
+              width: '100%',
+              backgroundColor: animateCopied ? 'green' : 'transparent',
+              color: 'white',
+              fontSize: 15
+            }}
+            onClick={() => {
+              navigator.clipboard.writeText(window.board.currentLink);
+              this.setState({ ...this.state, animateCopied: true });
+              setTimeout(() => {
+                this.setState({ ...this.state, animateCopied: false });
+              }, 2000);
+            }}
+          >
+            {animateCopied ? 'Copied to clipboard!' : 'Copy Current URL'}
+          </button>
+        </div>
         <div>
           <p style={this.state.error ? {} : { color: '#282c34' }}>
             {this.state.error || 'something'}
@@ -294,6 +319,7 @@ class BoardElement extends Component {
       const board = this.state.board;
       const cell = board.all[hint.index];
       highlightLines(cell);
+      // eslint-disable-next-line react/no-direct-mutation-state
       this.state.error = hint.reason;
       this.changeValueOnBoard(hint.value, cell, board);
       setTimeout(() => {

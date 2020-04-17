@@ -352,7 +352,9 @@ class Board {
   }
 
   get currentLink() {
-    return `new-game?values=${this.all
+    return `${
+      window.location.href.split('?')[0]
+    }?page=new-game&values=${this.all
       .map(p => p.value.toString(16))
       .join('')}&locked=${this.all.map(p => (p.locked ? '1' : '0')).join('')}`;
   }
